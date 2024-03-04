@@ -16,6 +16,9 @@ import com.okanaktas.instagram.databinding.ActivityMainBinding
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var auth: FirebaseAuth
+
+    private lateinit var email: String
+    private lateinit var password: String
     override fun onCreate(savedInstanceState: Bundle?) {
         binding = ActivityMainBinding.inflate(layoutInflater)
         val view = binding.root
@@ -31,15 +34,29 @@ class MainActivity : AppCompatActivity() {
 
         auth = Firebase.auth
 
+        email = binding.emailText.text.toString()
+        password = binding.passwordText.text.toString()
+
     }
+
     fun signInClick(view: View) {
+
+        if (email.isEmpty() && password.isEmpty()) {
+            Toast.makeText(this@MainActivity, "Enter mail and password", Toast.LENGTH_LONG).show()
+        } else {
+            auth.signInWithEmailAndPassword(email, password).addOnSuccessListener {
+                val intent = Intent(this@MainActivity, FeedActivity::class.java)
+                startActivity(intent)
+                finish()
+            }.addOnFailureListener {
+                Toast.makeText(this@MainActivity, it.localizedMessage, Toast.LENGTH_LONG).show()
+            }
+        }
+
 
     }
 
     fun signUpClick(view: View) {
-
-        val email = binding.emailText.text.toString()
-        val password = binding.passwordText.text.toString()
 
         //if(email.isNotEmpty() && password.isNotEmpty()){} -> kotlinde boş mu değil mi diye kontrol etmek için ya da aşağıda ki örnekte olduğu gibi
         if (email.equals("") || password.equals("")) {
