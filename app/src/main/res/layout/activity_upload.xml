@@ -11,12 +11,12 @@
         android:id="@+id/imageView"
         android:layout_width="250dp"
         android:layout_height="250dp"
-        android:layout_marginTop="50dp"
+        android:layout_marginTop="100dp"
         android:onClick="selectedImage"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/selectimage" />
+        app:srcCompat="@drawable/selected_image" />
 
     <EditText
         android:id="@+id/commetText"
@@ -40,4 +40,5 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/commetText" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,105 +1,180 @@
 package com.okanaktas.instagram
-
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 import android.net.Uri
+import android.os.Build
+import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.View
 import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.content.PackageManagerCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.snackbar.Snackbar
-import com.okanaktas.instagram.databinding.ActivityFeedBinding
+import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.ktx.storage
 import com.okanaktas.instagram.databinding.ActivityUploadBinding
+import java.io.IOException
+import java.util.*
 
 class UploadActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityUploadBinding
 
+    var selectedPicture: Uri? = null
+    var selectedBitmap: Bitmap? = null
+    private lateinit var db: FirebaseFirestore
+    private lateinit var auth: FirebaseAuth
+    private lateinit var binding: ActivityUploadBinding
     private lateinit var activityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
 
-    //registerLauncher içerisinde aldığım intentFromResult artık artık görselin uri sini barındırdığı için bu değişkene atamak için oluşturuyorum
-    var selectedPicture: Uri? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         binding = ActivityUploadBinding.inflate(layoutInflater)
         val view = binding.root
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(view)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
-
         registerLauncher()
 
+        auth = Firebase.auth
+        db = Firebase.firestore
 
     }
 
 
-    fun upload(view: View) {
+    fun imageViewClicked(view: View) {
 
-    }
-
-    fun selectedImage(view: View) {
-        //izni daha önce aldık mı diye kontrol ediyorum
-        if (ContextCompat.checkSelfPermission(this@UploadActivity, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            //izin yoksa
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this@UploadActivity, Manifest.permission.READ_EXTERNAL_STORAGE)) {
-                Snackbar.make(view, "Permission Needed!", Snackbar.LENGTH_INDEFINITE).setAction("Give Permission") {
-                    //request permission
-                    permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
-                }.show()
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(
+                    this,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                )
+            ) {
+                Snackbar.make(view, "Permission needed for gallery", Snackbar.LENGTH_INDEFINITE)
+                    .setAction("Give Permission",
+                        View.OnClickListener {
+                            permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                        }).show()
             } else {
-                //request permission
                 permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
         } else {
-            //izni hali hazırda aldıysak, izin varsa
-            //Intent.ACTION_PICK -> Git ve oradan bir veri al. Virgülden sonrası -> Nereden alacak bunu MediStore.Images.Media.EXTERNAL_CONTENT_URI
-            val intentToGallery = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-            //start activity for result
+            val intentToGallery =
+                Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
             activityResultLauncher.launch(intentToGallery)
+
         }
 
     }
 
+
+   /*fun upload(view: View) {
+
+        //UUID -> image name
+        val uuid = UUID.randomUUID()
+        val imageName = "$uuid.jpg"
+
+        val storage = Firebase.storage
+        val reference = storage.reference
+        val imagesReference = reference.child("images").child(imageName)
+
+        if (selectedPicture != null) {
+            imagesReference.putFile(selectedPicture!!).addOnSuccessListener { taskSnapshot ->
+
+                val uploadedPictureReference = storage.reference.child("images").child(imageName)
+                uploadedPictureReference.downloadUrl.addOnSuccessListener { uri ->
+                    val downloadUrl = uri.toString()
+                    println(downloadUrl)
+
+                    val postMap = hashMapOf<String, Any>()
+                    postMap.put("downloadUrl", downloadUrl)
+                    postMap.put("userEmail", auth.currentUser!!.email.toString())
+                    postMap.put("comment", binding.uploadCommentText.text.toString())
+                    postMap.put("date", Timestamp.now())
+
+
+                    db.collection("Posts").add(postMap).addOnCompleteListener { task ->
+
+                        if (task.isComplete && task.isSuccessful) {
+                            //back
+                            finish()
+
+                        }
+
+                    }.addOnFailureListener { exception ->
+                        Toast.makeText(
+                            applicationContext,
+                            exception.localizedMessage,
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+
+                }
+
+            }
+
+        }
+
+
+    }
+
+    */
+
     private fun registerLauncher() {
-        //Bir aktivite başlatacağım ama bir sonuç için yani veri için. burada kullanıcının seçtiği verinin ki burada görselin nerede kayıtlı olduğunun nerede kayıtlı olduğunu yani URI ını alıyoruz ve bize bize bir callBack veriyor. Bu da seçildikten sonra ne olacak kısmı. süslü parantezin içi bu kısım.
-        //Burada kullanıcı izni onayladıysa yani RESULT_OK ise
-        activityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        activityResultLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
             if (result.resultCode == RESULT_OK) {
-                //gelen sonucu yani URI ı result.data ile alıyorum fakat bu nullable geliyor o yüzden if ile kontrol etmem gerek
                 val intentFromResult = result.data
                 if (intentFromResult != null) {
                     selectedPicture = intentFromResult.data
-                    //if ile kontrol etmek yerine böyle de kontrol edilebilir nullable
-                    selectedPicture?.let {
-                        binding.imageView.setImageURI(it)
+                    try {
+                        if (Build.VERSION.SDK_INT >= 28) {
+                            val source = ImageDecoder.createSource(
+                                this@UploadActivity.contentResolver,
+                                selectedPicture!!
+                            )
+                            selectedBitmap = ImageDecoder.decodeBitmap(source)
+                            binding.imageView.setImageBitmap(selectedBitmap)
+                        } else {
+                            selectedBitmap = MediaStore.Images.Media.getBitmap(
+                                this@UploadActivity.contentResolver,
+                                selectedPicture
+                            )
+                            binding.imageView.setImageBitmap(selectedBitmap)
+                        }
+                    } catch (e: IOException) {
+                        e.printStackTrace()
                     }
                 }
             }
         }
-
-        //bir boolean dönüyor yani izin verildi mi verilmedi mi diye bunu direkt " result-> " olarak değiştiryorum bu result burada boolean
-        permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { result ->
+        permissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { result ->
             if (result) {
                 //permission granted
-                val intentToGallery = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                val intentToGallery =
+                    Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
                 activityResultLauncher.launch(intentToGallery)
             } else {
                 //permission denied
-                Toast.makeText(this@UploadActivity, "Permission Needed!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@UploadActivity, "Permisson needed!", Toast.LENGTH_LONG).show()
             }
         }
     }
